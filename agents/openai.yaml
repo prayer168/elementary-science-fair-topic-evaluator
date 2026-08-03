@@ -1,0 +1,4 @@
+interface:
+  display_name: "國小科展題目評估"
+  short_description: "批次評估國小科展 Markdown 題目，產出完整排行榜與建議"
+  default_prompt: "Use $elementary-science-fair-topic-evaluator to evaluate all science-fair Markdown proposals in this folder."
