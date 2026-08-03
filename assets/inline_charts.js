@@ -22,13 +22,32 @@
     return node;
   }
 
-  function frame(container, label, height) {
+  function frame(container, label, height, minWidth) {
     container.replaceChildren();
-    var width = Math.max(640, container.clientWidth || 760);
-    var svg = svgEl("svg", {viewBox: "0 0 " + width + " " + height, role: "img", "aria-label": label, width: "100%", height: height});
+    var width = Math.max(minWidth || 640, container.clientWidth || 760);
+    var svg = svgEl("svg", {viewBox: "0 0 " + width + " " + height, role: "img", "aria-label": label, width: minWidth ? width + "px" : "100%", height: height});
     svg.style.font = FONT;
     container.appendChild(svg);
     return {svg: svg, width: width, height: height};
+  }
+
+  function wrap(value, maxChars) {
+    var source = String(value || "");
+    if (!source) return ["未提供"];
+    var lines = [];
+    for (var i = 0; i < source.length; i += maxChars) lines.push(source.slice(i, i + maxChars));
+    return lines;
+  }
+
+  function wrappedText(svg, x, y, value, maxChars, attrs, lineHeight) {
+    var node = svgEl("text", Object.assign({x: x, y: y, fill: "#14213d", "font-size": 16}, attrs || {}));
+    wrap(value, maxChars).forEach(function (line, index) {
+      var span = svgEl("tspan", {x: x, dy: index === 0 ? 0 : (lineHeight || 18)});
+      span.textContent = line;
+      node.appendChild(span);
+    });
+    svg.appendChild(node);
+    return wrap(value, maxChars).length;
   }
 
   function scale(value, min, max, start, end) {
@@ -39,14 +58,27 @@
     return row.id || row.title || "未命名題目";
   }
 
+  function titleFor(row) {
+    return row.title || "科展題目未提供";
+  }
+
+  function sourceFor(row) {
+    return row.source_file || "來源檔名未提供";
+  }
+
   function renderTopScoreBars(container, rows) {
-    var view = frame(container, "前十名校正分數長條圖", Math.max(360, rows.length * 42 + 80));
-    var left = 190, right = 55, top = 28, bar = 24, gap = 18;
-    text(view.svg, left, 18, "校正分數（0–100）", {"font-weight": "700"});
-    rows.slice().sort(function (a, b) { return (a.rank || 999) - (b.rank || 999); }).slice(0, 10).forEach(function (row, i) {
-      var y = top + i * (bar + gap);
+    var visible = rows.slice().sort(function (a, b) { return (a.rank || 999) - (b.rank || 999); }).slice(0, 10);
+    var rowHeight = 110;
+    var view = frame(container, "前十名校正分數長條圖（含科展題目與來源檔名）", Math.max(420, visible.length * rowHeight + 70), 1220);
+    var left = 510, right = 70, top = 34, bar = 24;
+    text(view.svg, 20, 20, "科展題目／來源檔名", {"font-weight": "700"});
+    text(view.svg, left, 20, "校正分數（0–100）", {"font-weight": "700"});
+    if (!visible.length) { text(view.svg, 20, 70, "沒有符合條件的題目", {"font-weight": "700"}); return; }
+    visible.forEach(function (row, i) {
+      var y = top + i * rowHeight;
+      var titleLines = wrappedText(view.svg, 20, y + 14, labelFor(row) + "｜" + titleFor(row), 29, {"font-weight": "600"}, 18);
+      wrappedText(view.svg, 20, y + 14 + titleLines * 18 + 2, "來源：" + sourceFor(row), 40, {fill: "#3f5870"}, 18);
       var score = Number(row.adjusted_score) || 0;
-      text(view.svg, left - 10, y + 18, labelFor(row), {"text-anchor": "end"});
       view.svg.appendChild(svgEl("rect", {x: left, y: y, width: scale(score, 0, 100, 0, view.width - left - right), height: bar, rx: 4, fill: "#087f8c"}));
       text(view.svg, left + scale(score, 0, 100, 0, view.width - left - right) + 8, y + 18, score, {"font-weight": "700"});
     });
@@ -63,6 +95,7 @@
     text(view.svg, 20, (y0 + y1) / 2, "可行性", {"text-anchor": "middle", "font-weight": "700", transform: "rotate(-90 20 " + ((y0 + y1) / 2) + ")"});
     [0, 5, 10, 15].forEach(function (tick) { var x = scale(tick, 0, 15, x0, x1); text(view.svg, x, y0 + 25, tick, {"text-anchor": "middle"}); });
     [0, 5, 10].forEach(function (tick) { var y = scale(tick, 0, 10, y0, y1); text(view.svg, x0 - 12, y + 5, tick, {"text-anchor": "end"}); });
+    if (!rows.length) { text(view.svg, x0 + 20, y0 - 20, "沒有符合條件的題目", {"font-weight": "700"}); return; }
     rows.forEach(function (row) {
       var innovation = Number(row.innovation_score);
       var feasibility = Number(row.feasibility_score);
@@ -70,7 +103,7 @@
       var family = row.research_family || "未分類";
       if (!familyColors[family]) familyColors[family] = palette[Object.keys(familyColors).length % palette.length];
       var circle = svgEl("circle", {cx: scale(innovation, 0, 15, x0, x1), cy: scale(feasibility, 0, 10, y0, y1), r: 7, fill: familyColors[family], stroke: "#14213d", "data-id": labelFor(row)});
-      circle.appendChild(svgEl("title", {})).textContent = labelFor(row) + "：創新 " + innovation + "/15，可行 " + feasibility + "/10";
+      circle.appendChild(svgEl("title", {})).textContent = labelFor(row) + "｜" + titleFor(row) + "｜" + sourceFor(row) + "：創新 " + innovation + "/15，可行 " + feasibility + "/10";
       view.svg.appendChild(circle);
       text(view.svg, Number(circle.getAttribute("cx")) + 10, Number(circle.getAttribute("cy")) + 5, labelFor(row), {"font-size": 16});
     });
@@ -85,6 +118,7 @@
     var view = frame(container, "風險扣分分布圖", Math.max(360, rows.length * 32 + 70));
     var left = 190, right = 55, top = 26, bar = 18, gap = 14;
     text(view.svg, left, 16, "風險扣分（越高代表目前規畫風險越高）", {"font-weight": "700"});
+    if (!rows.length) { text(view.svg, 20, 70, "沒有符合條件的題目", {"font-weight": "700"}); return; }
     rows.slice().sort(function (a, b) { return (Number(b.risk_deduction) || 0) - (Number(a.risk_deduction) || 0); }).forEach(function (row, i) {
       var y = top + i * (bar + gap), risk = Number(row.risk_deduction) || 0;
       text(view.svg, left - 10, y + 14, labelFor(row), {"text-anchor": "end"});
