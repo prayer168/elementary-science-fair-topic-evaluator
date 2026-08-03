@@ -56,6 +56,8 @@
     var view = frame(container, "創新性與可行性散點圖", 440);
     var left = 90, right = 34, top = 34, bottom = 68;
     var x0 = left, x1 = view.width - right, y0 = view.height - bottom, y1 = top;
+    var palette = ["#007c91", "#e07a5f", "#6a4c93", "#3a86ff", "#2a9d8f", "#f4a261", "#264653", "#8ab17d"];
+    var familyColors = {};
     view.svg.appendChild(svgEl("rect", {x: x0, y: y1, width: x1 - x0, height: y0 - y1, fill: "#f5f8fc", stroke: "#b9c7d8"}));
     text(view.svg, (x0 + x1) / 2, view.height - 18, "創新性（0–15）", {"text-anchor": "middle", "font-weight": "700"});
     text(view.svg, 20, (y0 + y1) / 2, "可行性", {"text-anchor": "middle", "font-weight": "700", transform: "rotate(-90 20 " + ((y0 + y1) / 2) + ")"});
@@ -65,10 +67,17 @@
       var innovation = Number(row.innovation_score);
       var feasibility = Number(row.feasibility_score);
       if (!Number.isFinite(innovation) || !Number.isFinite(feasibility)) return;
-      var circle = svgEl("circle", {cx: scale(innovation, 0, 15, x0, x1), cy: scale(feasibility, 0, 10, y0, y1), r: 7, fill: "#e07a5f", stroke: "#7d2e1d", "data-id": labelFor(row)});
+      var family = row.research_family || "未分類";
+      if (!familyColors[family]) familyColors[family] = palette[Object.keys(familyColors).length % palette.length];
+      var circle = svgEl("circle", {cx: scale(innovation, 0, 15, x0, x1), cy: scale(feasibility, 0, 10, y0, y1), r: 7, fill: familyColors[family], stroke: "#14213d", "data-id": labelFor(row)});
       circle.appendChild(svgEl("title", {})).textContent = labelFor(row) + "：創新 " + innovation + "/15，可行 " + feasibility + "/10";
       view.svg.appendChild(circle);
       text(view.svg, Number(circle.getAttribute("cx")) + 10, Number(circle.getAttribute("cy")) + 5, labelFor(row), {"font-size": 16});
+    });
+    Object.keys(familyColors).slice(0, 8).forEach(function (family, i) {
+      var lx = x0 + (i % 2) * 220, ly = y1 + 18 + Math.floor(i / 2) * 20;
+      view.svg.appendChild(svgEl("rect", {x: lx, y: ly - 12, width: 14, height: 14, rx: 3, fill: familyColors[family]}));
+      text(view.svg, lx + 20, ly, family, {"font-size": 16});
     });
   }
 
