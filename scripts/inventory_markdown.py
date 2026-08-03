@@ -15,6 +15,11 @@ EXCLUDED_DIRS = {"node_modules", ".git", "results", "output", "archive"}
 ENCODINGS = ("utf-8-sig", "utf-8", "cp950", "big5")
 
 
+def is_excluded_dir(name: str) -> bool:
+    lowered = name.casefold()
+    return lowered in EXCLUDED_DIRS or lowered.startswith("results_")
+
+
 def decode_file(path: Path) -> tuple[str | None, str | None, str | None]:
     try:
         raw = path.read_bytes()
@@ -43,7 +48,7 @@ def sha256(path: Path) -> str | None:
 def discover(root: Path) -> list[Path]:
     found: list[Path] = []
     for current, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d.casefold() not in EXCLUDED_DIRS]
+        dirs[:] = [d for d in dirs if not is_excluded_dir(d)]
         base = Path(current)
         for name in files:
             if Path(name).suffix.casefold() == ".md":
